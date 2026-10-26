@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Workout">
+  <meta name="description" content="Stopwatches with laps, Tabata and interval timers, and countdowns.">
+  <title>Workout Timer</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="app-header">
+    <h1 id="view-title" tabindex="-1">Stopwatch</h1>
+    <button class="icon-btn" id="settings-btn" type="button" aria-label="Settings" data-key="settings-btn">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Zm7.43-2.53.04-.97-.04-.97 2.1-1.65-2-3.46-2.48 1a7.6 7.6 0 0 0-1.68-.97L15 2.5h-4l-.37 2.45c-.6.24-1.17.57-1.68.97l-2.48-1-2 3.46 2.1 1.65-.04.97.04.97-2.1 1.65 2 3.46 2.48-1c.51.4 1.08.73 1.68.97L11 21.5h4l.37-2.45c.6-.24 1.17-.57 1.68-.97l2.48 1 2-3.46-2.1-1.65Z"/></svg>
+    </button>
+  </header>
+
+  <section id="sound-banner" class="banner" aria-label="Sound" hidden>
+    <span>Sound is off until you tap.</span>
+    <button type="button" class="btn small" id="sound-enable" data-key="sound-enable">Turn on sound</button>
+  </section>
+
+  <main id="main" tabindex="-1"></main>
+
+  <nav class="tabbar" aria-label="Sections">
+    <button type="button" data-tab="stopwatch" data-key="tab-stopwatch">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 1h6v2H9zM12 4a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm1 9.4V8h-2v6.6l4.2 2.5 1-1.7Z"/></svg>
+      <span>Stopwatch</span>
+    </button>
+    <button type="button" data-tab="interval" data-key="tab-interval">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 12h3l2-6 4 12 3-9 2 3h4v2h-5.1L15 13l-3 9-4-12-.6 2H3z"/></svg>
+      <span>Tabata</span>
+    </button>
+    <button type="button" data-tab="timers" data-key="tab-timers">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M6 2h12v2h-1v3.2a5 5 0 0 1-2.3 4.2L13.6 12l1.1.6A5 5 0 0 1 17 16.8V20h1v2H6v-2h1v-3.2a5 5 0 0 1 2.3-4.2l1.1-.6-1.1-.6A5 5 0 0 1 7 7.2V4H6Z"/></svg>
+      <span>Timers</span>
+    </button>
+    <button type="button" data-tab="history" data-key="tab-history">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l4 4 4-4H6a7 7 0 1 1 2.05 4.95l-1.42 1.42A9 9 0 1 0 13 3Zm-1 5v5l4.25 2.52.77-1.28-3.52-2.09V8Z"/></svg>
+      <span>History</span>
+    </button>
+  </nav>
+
+  <div id="announcer" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+  <div id="flash" aria-hidden="true"></div>
+
+  <noscript><p class="noscript">Workout Timer needs JavaScript turned on.</p></noscript>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
