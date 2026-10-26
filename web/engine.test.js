@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   compileInterval, plannedDuration, startRun, runView, pauseRun, resumeRun, skipRun, backRun, adjustRun,
-  intervalCues, normalize, runElapsed, newStopwatch, swToggle, swLap, swReset, swElapsed, lapRows,
+  intervalCues, normalize, runElapsed, newStopwatch, swToggle, swSetEvery, stopwatchCues, swLap, swReset, swElapsed, lapRows,
   newTimer, tmToggle, tmAdjust, tmRemaining, timerCues, tmReset, fmtClock, fmtCount, fmtSpoken, phaseSpeech,
 } from './engine.js';
 
@@ -196,4 +196,24 @@ test('property: random command sequences keep invariants', () => {
       assert.equal(runElapsed(run, now), v.elapsed);
     }
   }
+});
+
+test('stopwatch sounds every X minutes of elapsed time, not wall time', () => {
+  let sw = swSetEvery(newStopwatch('a', 'A'), 2);
+  assert.deepEqual(stopwatchCues(sw, T0, 600_000), [], 'silent while stopped');
+  sw = swToggle(sw, T0);
+  const cues = stopwatchCues(sw, T0, 300_000);
+  assert.deepEqual(cues.map((c) => c.wall - T0), [120_000, 240_000]);
+  assert.equal(cues[0].text, '2 minutes');
+  assert.equal(cues[0].kind, 'chime');
+  // Stop at 1:00, resume 10 minutes later: next cue is 1:00 of running time away.
+  sw = swToggle(sw, T0 + 60_000);
+  sw = swToggle(sw, T0 + 660_000);
+  const after = stopwatchCues(sw, T0 + 660_000, 61_000);
+  assert.deepEqual(after.map((c) => c.wall - T0), [720_000]);
+  assert.notEqual(after[0].key, cues[0].key, 'resume invalidates old keys');
+  assert.deepEqual(stopwatchCues(swSetEvery(sw, 0), T0 + 700_000, 600_000), [], '0 is off');
+  assert.equal(swSetEvery(sw, 999).everyMin, 180);
+  assert.equal(swSetEvery(sw, -3).everyMin, 0);
+  assert.equal(stopwatchCues({ ...sw, everyMin: undefined }, T0 + 700_000, 600_000).length, 0, 'old saved stopwatches stay silent');
 });

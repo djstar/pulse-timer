@@ -244,7 +244,32 @@ export function intervalCues(run, now, horizonMs) {
 // ---------------------------------------------------------------- stopwatch
 
 export function newStopwatch(id, name) {
-  return { id, name, accumulated: 0, runningSince: null, laps: [], createdAt: null };
+  return { id, name, accumulated: 0, runningSince: null, laps: [], createdAt: null, everyMin: 0 };
+}
+
+export const SW_EVERY_MAX_MIN = 180;
+
+/** Clamp a "sound every X minutes" value to whole minutes, 0 (off) to SW_EVERY_MAX_MIN. */
+export function swSetEvery(sw, value) {
+  const everyMin = Math.max(0, Math.min(SW_EVERY_MAX_MIN, Math.round(Number(value) || 0)));
+  return { ...sw, everyMin };
+}
+
+/**
+ * Repeating cues for a running stopwatch: one every `everyMin` minutes of elapsed time.
+ * Keys embed runningSince and the interval, so stop/resume or a new interval
+ * invalidates every pending cue.
+ */
+export function stopwatchCues(sw, now, horizonMs) {
+  const everyMs = (sw.everyMin || 0) * 60_000;
+  if (!everyMs || !isRunning(sw)) return [];
+  const t = elapsedOf(sw, now);
+  const out = [];
+  for (let n = Math.max(1, Math.ceil((t - START_CUE_GRACE_MS) / everyMs)); n * everyMs <= t + horizonMs; n++) {
+    const at = n * everyMs;
+    out.push({ key: `sw:${sw.id}:${sw.runningSince}:${sw.everyMin}:${n}`, wall: now + (at - t), kind: 'chime', phase: 'work', text: fmtSpoken(at) });
+  }
+  return out;
 }
 
 export const swElapsed = elapsedOf;

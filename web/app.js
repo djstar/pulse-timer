@@ -135,6 +135,7 @@ function viewStopwatch() {
     const running = sw.runningSince != null;
     const elapsed = E.swElapsed(sw, Date.now());
     const rows = E.lapRows(sw.laps);
+    const every = sw.everyMin || 0;
     const laps = rows.length
       ? `<ol class="laps" aria-label="Laps, newest first">${rows.map((r) => `
           <li>
@@ -155,6 +156,14 @@ function viewStopwatch() {
           <button type="button" class="btn ${running ? 'stop' : 'go'}" data-action="sw-toggle" data-id="${sw.id}" data-key="swt-${sw.id}">${running ? `${ICON.pause} Stop` : `${ICON.play} ${elapsed ? 'Resume' : 'Start'}`}</button>
           <button type="button" class="btn" data-action="sw-lap" data-id="${sw.id}" data-key="swl-${sw.id}" ${running ? '' : 'disabled'}>${ICON.lap} Lap</button>
           <button type="button" class="btn ghost" data-action="sw-reset" data-id="${sw.id}" data-key="swr-${sw.id}" ${elapsed ? '' : 'disabled'}>${ICON.reset} Reset</button>
+        </div>
+        <div class="field">
+          <label for="swe-${sw.id}">Sound every <span class="muted">(minutes)</span><span class="hint">${every ? `Beeps and says the time every ${every === 1 ? 'minute' : `${every} minutes`}` : 'Off. Set above 0 to turn on'}</span></label>
+          <span class="stepper">
+            <button type="button" class="icon-btn" data-action="sw-every" data-id="${sw.id}" data-delta="-1" data-key="swe-dec-${sw.id}" aria-label="Decrease sound interval" ${every ? '' : 'disabled'}>${ICON.minus}</button>
+            <input id="swe-${sw.id}" type="number" inputmode="numeric" min="0" max="${E.SW_EVERY_MAX_MIN}" step="1" value="${every}" data-sw-every="${sw.id}" data-key="swe-in-${sw.id}">
+            <button type="button" class="icon-btn" data-action="sw-every" data-id="${sw.id}" data-delta="1" data-key="swe-inc-${sw.id}" aria-label="Increase sound interval" ${every >= E.SW_EVERY_MAX_MIN ? 'disabled' : ''}>${ICON.plus}</button>
+          </span>
         </div>
         ${laps}
       </article>`;
@@ -455,6 +464,10 @@ function syncCues() {
   const cues = [];
   if (state.run) cues.push(...E.intervalCues(state.run, now, CUE_HORIZON_MS));
   for (const tm of state.timers) if (!tm.alerted) cues.push(...E.timerCues(tm, now, CUE_HORIZON_MS));
+  const named = state.stopwatches.length > 1;
+  for (const sw of state.stopwatches) {
+    for (const c of E.stopwatchCues(sw, now, CUE_HORIZON_MS)) cues.push(named ? { ...c, text: `${sw.name}, ${c.text}` } : c);
+  }
   player.sync(cues);
 }
 
@@ -517,6 +530,7 @@ const actions = {
     });
     announce('Reset. Saved to history');
   },
+  'sw-every': (id, el) => setSwEvery(id, (state.stopwatches.find((x) => x.id === id).everyMin || 0) + Number(el.dataset.delta)),
   'sw-rename': (id) => {
     const sw = state.stopwatches.find((x) => x.id === id);
     const name = prompt('Stopwatch name', sw.name)?.trim();
@@ -609,6 +623,12 @@ const actions = {
   },
 };
 
+function setSwEvery(id, value) {
+  commit((s) => ({ ...s, stopwatches: mapById(s.stopwatches, id, (x) => E.swSetEvery(x, value)) }));
+  const m = state.stopwatches.find((x) => x.id === id).everyMin;
+  announce(m ? `Sound every ${m === 1 ? 'minute' : `${m} minutes`}` : 'Interval sound off');
+}
+
 function addTimer(name, durationMs) {
   const tm = E.tmToggle(E.newTimer(uid(), name, durationMs), Date.now());
   commit((s) => ({ ...s, timers: [...s.timers, tm] }));
@@ -677,6 +697,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('change', (e) => {
   const t = e.target;
   if (t.matches('#main input[data-field]')) commit((s) => setDraftField(s, t.dataset.field, t.value));
+  else if (t.matches('#main input[data-sw-every]')) setSwEvery(t.dataset.swEvery, t.value);
 });
 
 document.addEventListener('submit', (e) => {

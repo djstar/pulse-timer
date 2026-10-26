@@ -1,5 +1,5 @@
 // Offline app shell. Bump VERSION whenever a shell file changes.
-const VERSION = 'workout-v1';
+const VERSION = 'workout-v2';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'engine.js', 'audio.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 
