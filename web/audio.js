@@ -12,11 +12,29 @@ const TONES = {
 
 const KEEP_FIRED_MS = 10_000;
 
+/** A short silent WAV as a blob URL: playing it on loop moves iOS into the media
+ * ("playback") audio category, which ignores the silent switch. Web Audio alone
+ * stays in the ambient category on engines without navigator.audioSession. */
+function silentWavUrl(seconds = 1, rate = 8000) {
+  const n = seconds * rate;
+  const buf = new ArrayBuffer(44 + n);
+  const v = new DataView(buf);
+  const str = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  str(0, 'RIFF'); v.setUint32(4, 36 + n, true); str(8, 'WAVE');
+  str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+  str(36, 'data'); v.setUint32(40, n, true);
+  new Uint8Array(buf, 44).fill(128); // 8-bit PCM midpoint = silence
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
+}
+
 export class CuePlayer {
   constructor() {
     this.ctx = null;
     this.pending = new Map(); // key -> { wall, nodes: [], timeout }
-    this.settings = { beeps: true, voice: true, volume: 0.8, soundMode: 'mix' };
+    this.settings = { beeps: true, voice: true, volume: 0.8, soundMode: 'always' };
+    this.active = false;
+    this.carrier = null; // silent looping <audio>, see silentWavUrl
   }
 
   get unlocked() {
@@ -32,9 +50,32 @@ export class CuePlayer {
         navigator.audioSession.type = this.settings.soundMode === 'always' ? 'playback' : 'ambient';
       } catch { /* unsupported value on this engine */ }
     }
+    this.#updateCarrier();
+  }
+
+  /** Tell the player whether anything is timing; the silent carrier only plays then. */
+  setActive(active) {
+    this.active = active;
+    this.#updateCarrier();
+  }
+
+  #updateCarrier() {
+    const want = this.active && this.settings.soundMode === 'always' && (this.settings.beeps || this.settings.voice);
+    if (want) {
+      if (!this.carrier) {
+        this.carrier = new Audio(silentWavUrl());
+        this.carrier.loop = true;
+        this.carrier.setAttribute('playsinline', '');
+      }
+      // play() needs a user gesture the first time; unlock() retries on every tap.
+      if (this.carrier.paused) this.carrier.play().catch(() => {});
+    } else if (this.carrier && !this.carrier.paused) {
+      this.carrier.pause();
+    }
   }
 
   unlock() {
+    this.#updateCarrier();
     if (!this.ctx) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;

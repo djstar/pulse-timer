@@ -64,7 +64,8 @@ function defaults() {
     draft: { presetId: 'tabata', name: 'Tabata', cfg: { ...BUILTIN_PRESETS[0].cfg } },
     run: null,
     history: [],
-    settings: { voice: true, beeps: true, volume: 0.8, flash: true, wake: true, soundMode: 'mix' },
+    settings: { voice: true, beeps: true, volume: 0.8, flash: true, wake: true, soundMode: 'always' },
+    settingsRev: 2,
   };
 }
 
@@ -72,7 +73,12 @@ function load() {
   const base = defaults();
   try {
     const saved = JSON.parse(localStorage.getItem(STORE_KEY));
-    if (saved?.version === 1) return { ...base, ...saved, settings: { ...base.settings, ...saved.settings } };
+    if (saved?.version === 1) {
+      const settings = { ...base.settings, ...saved.settings };
+      // Rev 2: cues default to audible on silent. Earlier saves stored the old 'mix' default.
+      if ((saved.settingsRev ?? 1) < 2) settings.soundMode = 'always';
+      return { ...base, ...saved, settings, settingsRev: 2 };
+    }
   } catch { /* storage blocked or corrupt: start fresh */ }
   return base;
 }
@@ -94,6 +100,7 @@ function commit(mutate) {
   save();
   render();
   syncCues();
+  player.setActive(isAnythingRunning());
   updateWakeLock();
 }
 
@@ -653,8 +660,8 @@ function openSettings() {
       </div>
       <h3 class="section-title" id="sm-h">Sound with music</h3>
       <div class="card" role="radiogroup" aria-labelledby="sm-h">
-        <label class="switch-row"><span>Mix with my music<span class="hint">The silent switch mutes cues</span></span><input type="radio" name="soundMode" value="mix" ${st.soundMode !== 'always' ? 'checked' : ''}></label>
-        <label class="switch-row"><span>Always audible<span class="hint">Plays on silent, but pauses other audio</span></span><input type="radio" name="soundMode" value="always" ${st.soundMode === 'always' ? 'checked' : ''}></label>
+        <label class="switch-row"><span>Mix with my music<span class="hint">Keeps your music playing; the silent switch mutes cues</span></span><input type="radio" name="soundMode" value="mix" ${st.soundMode !== 'always' ? 'checked' : ''}></label>
+        <label class="switch-row"><span>Always audible<span class="hint">Plays even on silent; pauses other audio while timing</span></span><input type="radio" name="soundMode" value="always" ${st.soundMode === 'always' ? 'checked' : ''}></label>
       </div>
       <p><button type="button" class="btn block" data-test>Play a test cue</button></p>
       <p class="muted">Keep this page open with the screen on. iPhone pauses web pages when the screen locks, so cues stop until you come back. The timers themselves stay correct.</p>
