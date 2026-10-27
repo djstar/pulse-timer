@@ -43,24 +43,34 @@ export class CuePlayer {
 
   configure(settings) {
     this.settings = { ...this.settings, ...settings };
-    // WebKit's Audio Session API: 'ambient' mixes with music but obeys the silent
-    // switch; 'playback' is audible on silent but pauses other apps' audio.
-    if (navigator.audioSession) {
-      try {
-        navigator.audioSession.type = this.settings.soundMode === 'always' ? 'playback' : 'ambient';
-      } catch { /* unsupported value on this engine */ }
-    }
     this.#updateCarrier();
   }
 
-  /** Tell the player whether anything is timing; the silent carrier only plays then. */
+  /**
+   * Tell the player whether any cue could fire (something running that has cues).
+   * The 'playback' session and the silent carrier exist only while this is true:
+   * starting playback is what makes iOS route AirPods to this device, so an idle
+   * page, or a plain stopwatch with no interval sound, must never claim audio.
+   */
   setActive(active) {
     this.active = active;
     this.#updateCarrier();
   }
 
+  get #wantsPlayback() {
+    return this.active && this.settings.soundMode === 'always' && (this.settings.beeps || this.settings.voice);
+  }
+
   #updateCarrier() {
-    const want = this.active && this.settings.soundMode === 'always' && (this.settings.beeps || this.settings.voice);
+    const want = this.#wantsPlayback;
+    // WebKit's Audio Session API: 'ambient' mixes with other audio, obeys the silent
+    // switch and leaves headphone routing alone; 'playback' is audible on silent but
+    // pauses other audio and can pull AirPods over from another device.
+    if (navigator.audioSession) {
+      try {
+        navigator.audioSession.type = want ? 'playback' : 'ambient';
+      } catch { /* unsupported value on this engine */ }
+    }
     if (want) {
       if (!this.carrier) {
         this.carrier = new Audio(silentWavUrl());
@@ -74,14 +84,16 @@ export class CuePlayer {
     }
   }
 
+  /** Call from a tap handler. Does nothing once audio is ready, so taps don't re-claim audio. */
   unlock() {
     this.#updateCarrier();
+    if (this.unlocked) return;
     if (!this.ctx) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return;
       this.ctx = new Ctx();
     }
-    if (this.ctx.state !== 'running') this.ctx.resume().catch(() => {});
+    this.ctx.resume().catch(() => {});
     // Play one silent sample so iOS treats the context as user-started.
     const buf = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
     const src = this.ctx.createBufferSource();

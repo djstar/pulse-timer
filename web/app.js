@@ -84,7 +84,7 @@ function load() {
 }
 
 let state = load();
-const ui = { locked: false, settingsOpen: false };
+const ui = { locked: false, settingsOpen: false, swMarks: {} };
 const player = new CuePlayer();
 player.configure(state.settings);
 
@@ -100,7 +100,7 @@ function commit(mutate) {
   save();
   render();
   syncCues();
-  player.setActive(isAnythingRunning());
+  player.setActive(hasLiveCues());
   updateWakeLock();
 }
 
@@ -387,6 +387,9 @@ function frame(skipTransitions = false) {
 
   for (const sw of state.stopwatches) {
     const t = E.swElapsed(sw, now);
+    const mark = sw.everyMin > 0 && sw.runningSince != null ? Math.floor(t / (sw.everyMin * 60_000)) : 0;
+    if (mark > (ui.swMarks[sw.id] ?? mark)) flash();
+    ui.swMarks[sw.id] = mark;
     setText(`[data-live="sw:${sw.id}"]`, E.fmtClock(t));
     if (sw.laps.length) setText(`[data-live="swlap:${sw.id}"]`, E.fmtClock(t - sw.laps.at(-1).at));
   }
@@ -421,8 +424,7 @@ function frame(skipTransitions = false) {
     }
   }
 
-  const anyRunning = isAnythingRunning();
-  const needsSound = anyRunning && !player.unlocked && (state.settings.beeps || state.settings.voice);
+  const needsSound = hasLiveCues() && !player.unlocked && (state.settings.beeps || state.settings.voice);
   $('#sound-banner').hidden = !needsSound || !!state.run;
   const runSound = $('[data-live="run-sound"]');
   if (runSound) runSound.hidden = !needsSound;
@@ -464,6 +466,13 @@ function isAnythingRunning() {
   return (state.run && !state.run.done && state.run.runningSince != null)
     || state.stopwatches.some((s) => s.runningSince != null)
     || state.timers.some((t) => t.runningSince != null);
+}
+
+/** Something running that can make a sound. A plain stopwatch can't, so it never claims audio. */
+function hasLiveCues() {
+  return (state.run && !state.run.done && state.run.runningSince != null)
+    || state.stopwatches.some((s) => s.runningSince != null && s.everyMin > 0)
+    || state.timers.some((t) => t.runningSince != null && !t.alerted);
 }
 
 function syncCues() {
@@ -660,8 +669,8 @@ function openSettings() {
       </div>
       <h3 class="section-title" id="sm-h">Sound with music</h3>
       <div class="card" role="radiogroup" aria-labelledby="sm-h">
-        <label class="switch-row"><span>Mix with my music<span class="hint">Keeps your music playing; the silent switch mutes cues</span></span><input type="radio" name="soundMode" value="mix" ${st.soundMode !== 'always' ? 'checked' : ''}></label>
-        <label class="switch-row"><span>Always audible<span class="hint">Plays even on silent; pauses other audio while timing</span></span><input type="radio" name="soundMode" value="always" ${st.soundMode === 'always' ? 'checked' : ''}></label>
+        <label class="switch-row"><span>Mix with my music<span class="hint">Never touches other audio or your AirPods; the silent switch mutes cues</span></span><input type="radio" name="soundMode" value="mix" ${st.soundMode !== 'always' ? 'checked' : ''}></label>
+        <label class="switch-row"><span>Always audible<span class="hint">Plays even on silent. While a cue is due it pauses other audio, and AirPods set to switch automatically move to this phone</span></span><input type="radio" name="soundMode" value="always" ${st.soundMode === 'always' ? 'checked' : ''}></label>
       </div>
       <p><button type="button" class="btn block" data-test>Play a test cue</button></p>
       <p class="muted">Keep this page open with the screen on. iPhone pauses web pages when the screen locks, so cues stop until you come back. The timers themselves stay correct.</p>
